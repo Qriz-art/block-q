@@ -1,6 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// Inisialisasi client Supabase
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const GRID_SIZE = 8;
 const SHAPES = [
@@ -139,7 +146,45 @@ export default function BlockBlastGame() {
 
   const gridRef = useRef(null);
 
+  // --- FUNGSI AMBIL DATA DARI SUPABASE ---
+  const fetchTopScores = async () => {
+    const { data, error } = await supabase
+      .from("leaderboard")
+      .select("username, score")
+      .order("score", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error("Gagal mengambil data peringkat:", error);
+      return;
+    }
+
+    if (data) {
+      let fullList = [...data];
+      while (fullList.length < 10) {
+        fullList.push({ username: "-", score: 0 });
+      }
+      setLeaderboard(fullList);
+    }
+  };
+
+  // --- FUNGSI SIMPAN DATA KE SUPABASE ---
+  const uploadScoreGlobal = async (targetUser, targetScore) => {
+    const { error } = await supabase
+      .from("leaderboard")
+      .insert([{ username: targetUser, score: targetScore }]);
+
+    if (error) {
+      console.error("Gagal mengirim skor ke Supabase:", error);
+    } else {
+      fetchTopScores();
+    }
+  };
+
+  // --- INITIAL LOAD EFFECT ---
   useEffect(() => {
+    fetchTopScores();
+
     const savedUser = localStorage.getItem("block_blast_user");
     if (savedUser) {
       setUsername(savedUser);
@@ -148,71 +193,21 @@ export default function BlockBlastGame() {
 
     const savedHigh = localStorage.getItem("block_blast_high");
     if (savedHigh) setHighScore(parseInt(savedHigh, 10));
-
-    const savedLeaderboard = localStorage.getItem("block_blast_leaderboard");
-    if (savedLeaderboard) {
-      const parsed = JSON.parse(savedLeaderboard);
-      let cleanedMap = {};
-      parsed.forEach((item) => {
-        if (item && item.username && item.username !== "-") {
-          const nameKey = item.username.trim().toLowerCase();
-          if (!cleanedMap[nameKey] || item.score > cleanedMap[nameKey].score) {
-            cleanedMap[nameKey] = { username: item.username.trim(), score: item.score };
-          }
-        }
-      });
-
-      let cleanedList = Object.values(cleanedMap);
-      cleanedList.sort((a, b) => b.score - a.score).slice(0, 10);
-
-      while (cleanedList.length < 10) {
-        cleanedList.push({ username: "-", score: 0 });
-      }
-
-      setLeaderboard(cleanedList);
-      localStorage.setItem("block_blast_leaderboard", JSON.stringify(cleanedList));
-    } else {
-      setLeaderboard(Array(10).fill(null).map(() => ({ username: "-", score: 0 })));
-    }
     
     spawnPoolBlocks();
   }, []);
 
+  // --- GAME OVER EFFECT ---
   useEffect(() => {
     if (isGameOver && score > 0) {
       playSound("gameover");
+      
+      uploadScoreGlobal(username, score);
 
-      setLeaderboard((prev) => {
-        let activeRecords = prev.filter(item => item && item.username && item.username !== "-");
-        const existingIdx = activeRecords.findIndex(
-          item => item.username.trim().toLowerCase() === username.trim().toLowerCase()
-        );
-
-        if (existingIdx !== -1) {
-          if (score > activeRecords[existingIdx].score) {
-            activeRecords[existingIdx].score = score;
-          }
-        } else {
-          activeRecords.push({ username, score });
-        }
-
-        const newRecords = activeRecords
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 10);
-
-        while (newRecords.length < 10) {
-          newRecords.push({ username: "-", score: 0 });
-        }
-        
-        localStorage.setItem("block_blast_leaderboard", JSON.stringify(newRecords));
-        
-        if (newRecords[0].score > highScore) {
-          setHighScore(newRecords[0].score);
-          localStorage.setItem("block_blast_high", newRecords[0].score.toString());
-        }
-
-        return newRecords;
-      });
+      if (score > highScore) {
+        setHighScore(score);
+        localStorage.setItem("block_blast_high", score.toString());
+      }
     }
   }, [isGameOver, score, username]);
 
@@ -245,21 +240,27 @@ export default function BlockBlastGame() {
     return true;
   };
 
+  // --- POINTER DOWN (DETEKSI SENTUHAN AWAL) ---
   const handlePointerDown = (e, index, block) => {
     if (!block || !isLoggedIn) return;
     playSound("pickup");
+    
+    // Jika di HP/Touch naik 90px agar tidak tertutup jari, jika PC/Mouse cukup naik 40px
+    const offsetY = e.pointerType === "touch" ? 90 : 40;
+
     setDrag({
       active: true,
       block,
       slotIndex: index,
       x: e.clientX,
-      y: e.clientY - 40,
+      y: e.clientY - offsetY,
       targetRow: null,
       targetCol: null,
       isValid: false,
     });
   };
 
+  // --- POINTER MOVE & UP LISTENERS ---
   useEffect(() => {
     if (!drag.active) return;
 
@@ -268,11 +269,14 @@ export default function BlockBlastGame() {
       let targetCol = null;
       let isValid = false;
 
+      // Dinamis offset berdasarkan device aktif saat menyeret balok
+      const offsetY = e.pointerType === "touch" ? 90 : 40;
+
       if (gridRef.current) {
         const rect = gridRef.current.getBoundingClientRect();
         const cellSize = rect.width / GRID_SIZE;
         const logicalX = e.clientX - rect.left;
-        const logicalY = (e.clientY - 40) - rect.top;
+        const logicalY = (e.clientY - offsetY) - rect.top;
 
         targetCol = Math.floor(logicalX / cellSize) - Math.floor(drag.block.matrix[0].length / 2);
         targetRow = Math.floor(logicalY / cellSize) - Math.floor(drag.block.matrix.length / 2);
@@ -283,7 +287,7 @@ export default function BlockBlastGame() {
       setDrag((prev) => ({
         ...prev,
         x: e.clientX,
-        y: e.clientY - 40,
+        y: e.clientY - offsetY,
         targetRow,
         targetCol,
         isValid,
@@ -465,7 +469,7 @@ export default function BlockBlastGame() {
         </div>
 
         <div className="game-container">
-          <div className="title">BLOCK Q!</div>
+          <div className="title">BLOCK Q</div>
           
           {isLoggedIn && <div className="user-tag">Pemain: {username}</div>}
 
@@ -543,8 +547,18 @@ export default function BlockBlastGame() {
 
       </div>
 
-      {drag.active && drag.block && (
-        <div className="dragging-block" style={{ left: drag.x, top: drag.y }}>
+     {drag.active && drag.block && (
+        <div 
+          className="dragging-block" 
+          style={{ 
+            position: "fixed",
+            left: 0,
+            top: 0,
+            transform: `translate3d(${drag.x}px, ${drag.y}px, 0)`,
+            pointerEvents: "none",
+            zIndex: 9999
+          }}
+        >
           {renderBlockMatrix(drag.block)}
         </div>
       )}
