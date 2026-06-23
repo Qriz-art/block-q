@@ -1,0 +1,255 @@
+* {
+  box-sizing: border-box;
+  user-select: none;
+  font-family: 'Arial Rounded MT Bold', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-user-drag: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(180deg, #64B5F6 0%, #E3F2FD 100%);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  touch-action: none;
+  padding: 20px;
+}
+
+/* Dekorasi */
+.decorations {
+  position: absolute; width: 100%; height: 100%; overflow: hidden; z-index: 1; pointer-events: none;
+}
+.rainbow {
+  position: absolute; bottom: -50px; left: -50px; width: 400px; height: 400px;
+  border-radius: 50%;
+  border: 30px solid transparent;
+  border-image: linear-gradient(to right, #FF1744, #FF9100, #FFEA00, #00E676, #00B0FF, #D500F9) 1;
+  opacity: 0.3; transform: rotate(45deg);
+}
+.sun {
+  position: absolute; top: 40px; right: 40px; width: 80px; height: 80px;
+  background: #FFD54F; border-radius: 50%; box-shadow: 0 0 30px #FFB300; opacity: 0.8;
+}
+
+/* Layout Utama */
+.game-layout {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  z-index: 10;
+  max-width: 800px;
+  width: 100%;
+  justify-content: center;
+}
+
+/* PAPAN PERINGKAT (Tampilan Desktop Bawaan) */
+.leaderboard-container {
+  background: rgba(26, 35, 126, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 25px;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  border: 4px solid #FFF;
+  width: 280px;
+  color: white;
+  text-align: center;
+  position: relative;
+}
+.leaderboard-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #FFEA00;
+  text-shadow: 2px 2px 0px #FF1744;
+  margin-bottom: 15px;
+  letter-spacing: 1px;
+}
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.leaderboard-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.rank-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  flex-grow: 1;
+  margin-left: 10px;
+}
+.leaderboard-item.rank-1 { background: linear-gradient(45deg, #FFD700, #FFA000); color: #000; border: 1px solid #FFF;}
+.leaderboard-item.rank-2 { background: linear-gradient(45deg, #E0E0E0, #9E9E9E); color: #000; }
+.leaderboard-item.rank-3 { background: linear-gradient(45deg, #CD7F32, #8D6E63); color: #FFF; }
+
+/* Tombol Kontrol Papan Peringkat (Sembunyi di Desktop) */
+.leaderboard-toggle-btn, .leaderboard-close-btn {
+  display: none;
+}
+
+/* WADAH UTAMA GAME */
+.game-container {
+  background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px);
+  border-radius: 30px; padding: 25px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  border: 5px solid #FFF; text-align: center; max-width: 440px; width: 100%;
+  position: relative;
+}
+
+.title {
+  font-size: 34px; font-weight: bold; color: #FF1744;
+  text-shadow: 3px 3px 0px #FFEA00, 5px 5px 0px #29B6F6; margin: 0 0 15px 0; letter-spacing: 2px;
+}
+
+.user-tag {
+  font-size: 14px; color: #1A237E; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;
+}
+
+.score-board {
+  display: flex; justify-content: space-between; background: #1A237E; color: #FFF;
+  padding: 10px 20px; border-radius: 15px; font-size: 18px; margin-bottom: 20px;
+  box-shadow: inset 0 4px 10px rgba(0,0,0,0.5);
+}
+.score-val { color: #FFEA00; font-weight: bold; }
+
+/* Grid */
+.grid {
+  display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+  gap: 4px; background: #283593; padding: 8px; border-radius: 15px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2); aspect-ratio: 1 / 1; margin-bottom: 25px;
+  position: relative;
+}
+.cell { background: rgba(255, 255, 255, 0.08); border-radius: 6px; transition: background 0.1s; }
+
+/* Warna Blok */
+.color-1 { background: #FF2A85; } .color-2 { background: #00D4FF; }
+.color-3 { background: #FF7B00; } .color-4 { background: #FFCB00; }
+.color-5 { background: #76E100; } .color-6 { background: #B100FF; }
+
+/* Pools */
+.blocks-pool {
+  display: flex; justify-content: space-around; align-items: center;
+  background: rgba(40, 53, 147, 0.1); padding: 15px; border-radius: 20px; min-height: 120px;
+}
+.pool-slot { width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; cursor: grab; }
+.block-matrix { display: grid; gap: 2px; pointer-events: none; }
+.block-unit { border-radius: 4px; box-shadow: inset -3px -3px 0px rgba(0,0,0,0.2), inset 3px 3px 0px rgba(255,255,255,0.4); }
+
+/* Shadows */
+.shadow-valid { background: rgba(255, 255, 255, 0.5) !important; box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.8); }
+.shadow-invalid { background: rgba(255, 23, 68, 0.5) !important; }
+.dragging-block { position: fixed; pointer-events: none; z-index: 1000; transform: translate(-50%, -50%); filter: drop-shadow(0 15px 15px rgba(0,0,0,0.4)); }
+
+/* Modals & Animasi */
+@keyframes blast { 0% { transform: scale(1); opacity: 1; filter: brightness(2); } 50% { transform: scale(1.1); opacity: 0.5; } 100% { transform: scale(0); opacity: 0; } }
+.blasting { animation: blast 0.3s ease-out forwards; }
+
+.game-over-modal, .auth-modal {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(26, 35, 126, 0.95); z-index: 100; border-radius: 25px;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
+  padding: 30px;
+}
+.auth-modal h2 { font-size: 28px; color: #FFEA00; text-shadow: 2px 2px 0 #FF1744; margin-bottom: 20px; }
+
+.login-input {
+  background: #FFF; border: 3px solid #00E676; padding: 12px 20px; font-size: 18px;
+  border-radius: 15px; width: 80%; text-align: center; color: #333; font-weight: bold;
+  margin-bottom: 20px; outline: none;
+}
+.login-input::placeholder { color: #AAA; font-weight: normal; }
+
+.start-btn, .restart-btn {
+  background: #00E676; color: white; border: none; padding: 12px 35px; font-size: 18px;
+  border-radius: 25px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,230,118,0.4); font-weight: bold; transition: 0.2s;
+}
+.start-btn:hover, .restart-btn:hover { transform: scale(1.05); }
+
+
+/* =======================================================
+   ATURAN KHUSUS TAMPILAN HP (RESPONSIVE)
+   ======================================================= */
+@media (max-width: 768px) {
+  body { overflow-y: auto; height: auto; }
+  .game-layout { flex-direction: column; align-items: center; }
+
+  /* Tombol Melayang Munculkan Peringkat di HP (Kiri Bawah) */
+  .leaderboard-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: #1A237E;
+    color: #FFEA00;
+    border: 3px solid #FFF;
+    padding: 10px 18px;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: bold;
+    z-index: 90;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    border-image: none;
+    transition: 0.2s;
+  }
+  .leaderboard-toggle-btn:active { transform: scale(0.95); }
+
+  /* Ubah Papan Rekor Jadi Sembunyi & Berbentuk Pop-Up Centered Modal */
+  .leaderboard-container {
+    display: none; /* Sembunyi default di HP */
+  }
+  
+  /* Class pemicu saat tombol piala diklik */
+  .leaderboard-container.mobile-open {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    width: 90%;
+    max-width: 320px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7); /* Efek background gelap melingkari pop up */
+    animation: popUpEffect 0.2s ease-out forwards;
+  }
+
+  @keyframes popUpEffect {
+    from { transform: translate(-50%, -40%) scale(0.9); opacity: 0; }
+    to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  }
+
+  /* Tombol bulat silang untuk tutup Pop up peringkat */
+  .leaderboard-close-btn {
+    display: block;
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    background: #FF1744;
+    color: white;
+    border: 3px solid #FFF;
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+}
