@@ -146,25 +146,45 @@ export default function BlockBlastGame() {
 
   const gridRef = useRef(null);
 
-  // --- FUNGSI AMBIL DATA DARI SUPABASE ---
+  // --- FUNGSI AMBIL DATA DARI SUPABASE (SUDAH DISARING) ---
   const fetchTopScores = async () => {
+    // 1. Ambil data lebih banyak (misal 100 teratas) agar bisa disaring
     const { data, error } = await supabase
       .from("leaderboard")
       .select("username, score")
       .order("score", { ascending: false })
-      .limit(10);
+      .limit(100);
 
     if (error) {
-      console.error("Gagal mengambil data peringkat:", error);
+      console.error("Gagal mengambil data peringkat:", error.message || error);
       return;
     }
 
     if (data) {
-      let fullList = [...data];
-      while (fullList.length < 10) {
-        fullList.push({ username: "-", score: 0 });
+      // 2. Menyaring agar 1 nama hanya menyimpan 1 skor terbesarnya
+      const uniqueMap = {};
+      data.forEach((item) => {
+        if (!item || !item.username) return;
+        
+        // Ubah nama jadi huruf kecil semua untuk pengecekan (Rizki = rizki)
+        const nameKey = item.username.trim().toLowerCase(); 
+        
+        if (!uniqueMap[nameKey] || item.score > uniqueMap[nameKey].score) {
+          uniqueMap[nameKey] = { username: item.username, score: item.score };
+        }
+      });
+
+      // 3. Ubah kembali ke format daftar, urutkan lagi dari terbesar, ambil 10 teratas
+      let finalTop10 = Object.values(uniqueMap)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10);
+
+      // 4. Isi kekosongan jika total pemain unik belum sampai 10 orang
+      while (finalTop10.length < 10) {
+        finalTop10.push({ username: "-", score: 0 });
       }
-      setLeaderboard(fullList);
+      
+      setLeaderboard(finalTop10);
     }
   };
 
