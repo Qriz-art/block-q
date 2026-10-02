@@ -1,4 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,7 +20,14 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Iklan Popunder */}
+        <Script
+          src="https://pl31616162.profitableratecpmnetwork.com/0e/14/b8/0e14b8ee3a3094662dd4f1eee02fa0f9.js"
+          strategy="afterInteractive"
+        />
+      </body>
     </html>
   );
 }

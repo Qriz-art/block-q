@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-// Inisialisasi client Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+import Script from "next/script";
 
 const GRID_SIZE = 8;
+const BOMB_PRICE = 50;
+const ROCKET_PRICE = 100;
+const CLEAR_ALL_PRICE = 250; // 5x harga bom
+const AD_URL = "https://www.profitableratecpmnetwork.com/d54r2im9d1?key=868277df5dda70748cfda6df9c066856";
+const AD_WAIT_MS = 8000; // minimal waktu tunggu sebelum hadiah iklan bisa diklaim
+const START_COINS = 100;
+const COINS_PER_LINE = 10;
+
 const SHAPES = [
   { matrix: [[1]], color: 1 },
   { matrix: [[1, 1]], color: 2 },
@@ -84,6 +86,36 @@ const playSound = (type) => {
         bassOsc.stop(now + 0.25);
         break;
 
+      case "bomb":
+        const bombOsc = ctx.createOscillator();
+        const bombGain = ctx.createGain();
+        bombOsc.type = "sawtooth";
+        bombOsc.frequency.setValueAtTime(200, now);
+        bombOsc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+        bombGain.gain.setValueAtTime(0.45, now);
+        bombGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        bombOsc.connect(bombGain);
+        bombGain.connect(ctx.destination);
+        bombOsc.start(now);
+        bombOsc.stop(now + 0.35);
+        break;
+
+      case "coin":
+        const coinNotes = [880, 1174.66];
+        coinNotes.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "square";
+          osc.frequency.setValueAtTime(freq, now + index * 0.06);
+          gain.gain.setValueAtTime(0.08, now + index * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.06 + 0.12);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + index * 0.06);
+          osc.stop(now + index * 0.06 + 0.12);
+        });
+        break;
+
       case "gameover":
         const goNotes = [440, 392, 349, 261];
         goNotes.forEach((freq, index) => {
@@ -126,12 +158,14 @@ export default function BlockBlastGame() {
   const [poolBlocks, setPoolBlocks] = useState([null, null, null]);
   const [isGameOver, setIsGameOver] = useState(false);
   const [blastingCells, setBlastingCells] = useState([]);
-  
-  const [username, setUsername] = useState("");
-  const [inputName, setInputName] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [isMobileLeaderboardOpen, setIsMobileLeaderboardOpen] = useState(false);
+
+  const [coins, setCoins] = useState(START_COINS);
+  const [bombs, setBombs] = useState(1);
+  const [rockets, setRockets] = useState(1);
+  const [bombMode, setBombMode] = useState(false);
+  const [rocketMode, setRocketMode] = useState(false);
+  const [shopItem, setShopItem] = useState(null);
+  const [adTask, setAdTask] = useState(null);
 
   const [drag, setDrag] = useState({
     active: false,
@@ -146,74 +180,20 @@ export default function BlockBlastGame() {
 
   const gridRef = useRef(null);
 
-  // --- FUNGSI AMBIL DATA DARI SUPABASE (SUDAH DISARING) ---
-  const fetchTopScores = async () => {
-    // 1. Ambil data lebih banyak (misal 100 teratas) agar bisa disaring
-    const { data, error } = await supabase
-      .from("leaderboard")
-      .select("username, score")
-      .order("score", { ascending: false })
-      .limit(100);
-
-    if (error) {
-      console.error("Gagal mengambil data peringkat:", error.message || error);
-      return;
-    }
-
-    if (data) {
-      // 2. Menyaring agar 1 nama hanya menyimpan 1 skor terbesarnya
-      const uniqueMap = {};
-      data.forEach((item) => {
-        if (!item || !item.username) return;
-        
-        // Ubah nama jadi huruf kecil semua untuk pengecekan (Rizki = rizki)
-        const nameKey = item.username.trim().toLowerCase(); 
-        
-        if (!uniqueMap[nameKey] || item.score > uniqueMap[nameKey].score) {
-          uniqueMap[nameKey] = { username: item.username, score: item.score };
-        }
-      });
-
-      // 3. Ubah kembali ke format daftar, urutkan lagi dari terbesar, ambil 10 teratas
-      let finalTop10 = Object.values(uniqueMap)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 10);
-
-      // 4. Isi kekosongan jika total pemain unik belum sampai 10 orang
-      while (finalTop10.length < 10) {
-        finalTop10.push({ username: "-", score: 0 });
-      }
-      
-      setLeaderboard(finalTop10);
-    }
-  };
-
-  // --- FUNGSI SIMPAN DATA KE SUPABASE ---
-  const uploadScoreGlobal = async (targetUser, targetScore) => {
-    const { error } = await supabase
-      .from("leaderboard")
-      .insert([{ username: targetUser, score: targetScore }]);
-
-    if (error) {
-      console.error("Gagal mengirim skor ke Supabase:", error);
-    } else {
-      fetchTopScores();
-    }
-  };
-
   // --- INITIAL LOAD EFFECT ---
   useEffect(() => {
-    fetchTopScores();
-
-    const savedUser = localStorage.getItem("block_blast_user");
-    if (savedUser) {
-      setUsername(savedUser);
-      setIsLoggedIn(true);
-    }
-
-    const savedHigh = localStorage.getItem("block_blast_high");
+    const savedHigh = localStorage.getItem("block_q_high");
     if (savedHigh) setHighScore(parseInt(savedHigh, 10));
-    
+
+    const savedCoins = localStorage.getItem("block_q_coins");
+    if (savedCoins !== null) setCoins(parseInt(savedCoins, 10));
+
+    const savedBombs = localStorage.getItem("block_q_bombs");
+    if (savedBombs !== null) setBombs(parseInt(savedBombs, 10));
+
+    const savedRockets = localStorage.getItem("block_q_rockets");
+    if (savedRockets !== null) setRockets(parseInt(savedRockets, 10));
+
     spawnPoolBlocks();
   }, []);
 
@@ -221,25 +201,22 @@ export default function BlockBlastGame() {
   useEffect(() => {
     if (isGameOver && score > 0) {
       playSound("gameover");
-      
-      uploadScoreGlobal(username, score);
 
       if (score > highScore) {
         setHighScore(score);
-        localStorage.setItem("block_blast_high", score.toString());
+        localStorage.setItem("block_q_high", score.toString());
       }
     }
-  }, [isGameOver, score, username]);
+  }, [isGameOver, score, highScore]);
 
-  const handleLoginSubmit = (e) => {
-    e.preventDefault();
-    if (!inputName.trim()) return;
-    playSound("click");
-    const cleanName = inputName.trim().substring(0, 12);
-    localStorage.setItem("block_blast_user", cleanName);
-    setUsername(cleanName);
-    setIsLoggedIn(true);
-  };
+  // --- IKLAN: aktifkan tombol klaim setelah menunggu sebentar ---
+  useEffect(() => {
+    if (!adTask || !adTask.opened || adTask.ready) return;
+    const timer = setTimeout(() => {
+      setAdTask((prev) => (prev ? { ...prev, ready: true } : prev));
+    }, AD_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [adTask]);
 
   const spawnPoolBlocks = () => {
     const newBlocks = Array(3).fill(null).map(() => SHAPES[Math.floor(Math.random() * SHAPES.length)]);
@@ -262,9 +239,9 @@ export default function BlockBlastGame() {
 
   // --- POINTER DOWN (DETEKSI SENTUHAN AWAL) ---
   const handlePointerDown = (e, index, block) => {
-    if (!block || !isLoggedIn) return;
+    if (!block || bombMode || rocketMode) return;
     playSound("pickup");
-    
+
     // Jika di HP/Touch naik 90px agar tidak tertutup jari, jika PC/Mouse cukup naik 40px
     const offsetY = e.pointerType === "touch" ? 90 : 40;
 
@@ -351,6 +328,14 @@ export default function BlockBlastGame() {
     checkLines(newGrid, newPool);
   };
 
+  const addCoins = (amount) => {
+    setCoins((prev) => {
+      const next = prev + amount;
+      localStorage.setItem("block_q_coins", next.toString());
+      return next;
+    });
+  };
+
   const checkLines = (currentGrid, currentPool) => {
     let rowsToClear = [];
     let colsToClear = [];
@@ -364,8 +349,9 @@ export default function BlockBlastGame() {
 
     if (rowsToClear.length > 0 || colsToClear.length > 0) {
       playSound("blast");
-      let blastScore = (rowsToClear.length + colsToClear.length) * 100;
-      updateScore(blastScore);
+      const linesCleared = rowsToClear.length + colsToClear.length;
+      updateScore(linesCleared * 100);
+      addCoins(linesCleared * COINS_PER_LINE);
 
       let blastCoords = [];
       rowsToClear.forEach((r) => {
@@ -396,6 +382,195 @@ export default function BlockBlastGame() {
     setScore((prev) => prev + points);
   };
 
+  // --- BOMB, ROCKET & SHOP ---
+  const blastCells = (coords) => {
+    if (coords.length === 0) return;
+    setBlastingCells(coords);
+    setTimeout(() => setBlastingCells([]), 300);
+  };
+
+  const changeBombs = (amount) =>
+    setBombs((prev) => {
+      const next = Math.max(0, prev + amount);
+      localStorage.setItem("block_q_bombs", next.toString());
+      return next;
+    });
+
+  const changeRockets = (amount) =>
+    setRockets((prev) => {
+      const next = Math.max(0, prev + amount);
+      localStorage.setItem("block_q_rockets", next.toString());
+      return next;
+    });
+
+  const itemPrice = (item) =>
+    item === "bomb" ? BOMB_PRICE : item === "rocket" ? ROCKET_PRICE : CLEAR_ALL_PRICE;
+
+  const itemAds = (item) => (item === "clearall" ? 2 : 1);
+
+  const activateBomb = () => {
+    if (isGameOver) return;
+    playSound("click");
+    // Bom habis -> munculkan pop up beli / tonton iklan
+    if (bombs <= 0) {
+      setShopItem("bomb");
+      return;
+    }
+    setRocketMode(false);
+    setBombMode((prev) => !prev);
+  };
+
+  const activateRocket = () => {
+    if (isGameOver) return;
+    playSound("click");
+    if (rockets <= 0) {
+      setShopItem("rocket");
+      return;
+    }
+    setBombMode(false);
+    setRocketMode((prev) => !prev);
+  };
+
+  const doClearAll = () => {
+    playSound("bomb");
+    const blastCoords = [];
+    const newGrid = grid.map((row, r) =>
+      row.map((val, c) => {
+        if (val !== 0) blastCoords.push(`${r}-${c}`);
+        return 0;
+      })
+    );
+
+    blastCells(blastCoords);
+    setGrid(newGrid);
+    setBombMode(false);
+    setRocketMode(false);
+  };
+
+  const buyItem = () => {
+    if (!shopItem) return;
+    const price = itemPrice(shopItem);
+    if (coins < price) return;
+
+    playSound("coin");
+    addCoins(-price);
+
+    if (shopItem === "bomb") {
+      changeBombs(1);
+      setRocketMode(false);
+      setBombMode(true);
+    } else if (shopItem === "rocket") {
+      changeRockets(1);
+      setBombMode(false);
+      setRocketMode(true);
+    } else {
+      doClearAll();
+    }
+    setShopItem(null);
+  };
+
+  // --- IKLAN (rewarded ad) ---
+  const startAd = (item) => {
+    playSound("click");
+    setShopItem(null);
+    setAdTask({ kind: item, total: itemAds(item), done: 0, opened: false, ready: false });
+  };
+
+  const openAdTab = () => {
+    playSound("click");
+    window.open(AD_URL, "_blank", "noopener,noreferrer");
+    setAdTask((prev) => (prev ? { ...prev, opened: true, ready: false } : prev));
+  };
+
+  const continueGame = () => {
+    // Lanjut main: skor tetap, sebagian papan (baris atas) dibersihkan
+    const keepFromRow = Math.floor(GRID_SIZE / 2);
+    setGrid((prev) => prev.map((row, r) => (r < keepFromRow ? row.map(() => 0) : [...row])));
+    setIsGameOver(false);
+    setBombMode(false);
+    setRocketMode(false);
+    spawnPoolBlocks();
+  };
+
+  const giveAdReward = (kind) => {
+    playSound("coin");
+    if (kind === "bomb") {
+      changeBombs(1);
+      setRocketMode(false);
+      setBombMode(true);
+    } else if (kind === "rocket") {
+      changeRockets(1);
+      setBombMode(false);
+      setRocketMode(true);
+    } else if (kind === "clearall") {
+      doClearAll();
+    } else if (kind === "continue") {
+      continueGame();
+    }
+  };
+
+  const claimAdReward = () => {
+    if (!adTask || !adTask.ready) return;
+
+    const nextDone = adTask.done + 1;
+    // Masih ada iklan berikutnya (mis. hancurkan semua butuh 2 iklan)
+    if (nextDone < adTask.total) {
+      setAdTask({ ...adTask, done: nextDone, opened: false, ready: false });
+      return;
+    }
+
+    const kind = adTask.kind;
+    setAdTask(null);
+    giveAdReward(kind);
+  };
+
+  const handleCellClick = (row, col) => {
+    if (isGameOver) return;
+
+    // Mode bom: ledakkan area 3x3
+    if (bombMode && bombs > 0) {
+      const newGrid = grid.map((r) => [...r]);
+      const blastCoords = [];
+
+      for (let r = row - 1; r <= row + 1; r++) {
+        for (let c = col - 1; c <= col + 1; c++) {
+          if (r >= 0 && r < GRID_SIZE && c >= 0 && c < GRID_SIZE && newGrid[r][c] !== 0) {
+            newGrid[r][c] = 0;
+            blastCoords.push(`${r}-${c}`);
+          }
+        }
+      }
+
+      playSound("bomb");
+      blastCells(blastCoords);
+      setGrid(newGrid);
+      changeBombs(-1);
+      setBombMode(false);
+      return;
+    }
+
+    // Mode roket: langsung hancurkan 4 arah (seluruh baris & kolom)
+    if (rocketMode && rockets > 0) {
+      const newGrid = grid.map((r) => [...r]);
+      const blastCoords = [];
+      const clearCell = (r, c) => {
+        if (newGrid[r][c] !== 0) {
+          newGrid[r][c] = 0;
+          blastCoords.push(`${r}-${c}`);
+        }
+      };
+
+      for (let c = 0; c < GRID_SIZE; c++) clearCell(row, c);
+      for (let r = 0; r < GRID_SIZE; r++) clearCell(r, col);
+
+      playSound("bomb");
+      blastCells(blastCoords);
+      setGrid(newGrid);
+      changeRockets(-1);
+      setRocketMode(false);
+    }
+  };
+
   const checkGameOverCondition = (currentGrid, currentPool) => {
     const remainingBlocks = currentPool.filter((b) => b !== null);
     if (remainingBlocks.length === 0) return;
@@ -422,12 +597,11 @@ export default function BlockBlastGame() {
     setGrid(Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(0)));
     setScore(0);
     setIsGameOver(false);
+    setBombMode(false);
+    setRocketMode(false);
+    setShopItem(null);
+    setAdTask(null);
     spawnPoolBlocks();
-  };
-
-  const toggleMobileLeaderboard = (openState) => {
-    playSound("click");
-    setIsMobileLeaderboardOpen(openState);
   };
 
   const renderBlockMatrix = (block, styleClass = "") => {
@@ -456,49 +630,25 @@ export default function BlockBlastGame() {
         <div className="sun"></div>
       </div>
 
-      {isLoggedIn && (
-        <button className="leaderboard-toggle-btn" onClick={() => toggleMobileLeaderboard(true)}>
-          🏆 Peringkat
-        </button>
-      )}
-
       <div className="game-layout">
-        
-        <div className={`leaderboard-container ${isMobileLeaderboardOpen ? "mobile-open" : ""}`}>
-          <button className="leaderboard-close-btn" onClick={() => toggleMobileLeaderboard(false)}>
-            ✕
-          </button>
-
-          <div className="leaderboard-title">🏆 TOP 10 REKOR</div>
-          <div className="leaderboard-list">
-            {leaderboard.map((item, idx) => {
-              let rankStyle = "";
-              if (idx === 0) rankStyle = "rank-1";
-              else if (idx === 1) rankStyle = "rank-2";
-              else if (idx === 2) rankStyle = "rank-3";
-
-              return (
-                <div key={idx} className={`leaderboard-item ${rankStyle}`}>
-                  <span>#{idx + 1}</span>
-                  <span className="rank-name">{item?.username || "-"}</span>
-                  <span>{item?.score || 0} Pts</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         <div className="game-container">
           <div className="title">BLOCK Q</div>
-          
-          {isLoggedIn && <div className="user-tag">Pemain: {username}</div>}
+
+          <div className="coin-bar">🪙 {coins}</div>
 
           <div className="score-board">
             <div>SKOR: <span className="score-val">{score}</span></div>
             <div>TERTINGGI: <span className="score-val">{highScore}</span></div>
           </div>
 
-          <div className="grid" ref={gridRef}>
+          {bombMode && (
+            <div className="bomb-hint">Ketuk kotak untuk meledakkannya! 💥</div>
+          )}
+          {rocketMode && (
+            <div className="bomb-hint">Ketuk kotak untuk roket 4 arah! 🚀</div>
+          )}
+
+          <div className={`grid ${bombMode ? "bomb-mode" : ""} ${rocketMode ? "rocket-mode" : ""}`} ref={gridRef}>
             {grid.map((row, r) =>
               row.map((val, c) => {
                 let shadowClass = "";
@@ -517,7 +667,11 @@ export default function BlockBlastGame() {
                 const cellColorClass = val > 0 ? `color-${val} block-unit` : "";
 
                 return (
-                  <div key={`${r}-${c}`} className={`cell ${cellColorClass} ${shadowClass} ${isBlasting ? "blasting" : ""}`}></div>
+                  <div
+                    key={`${r}-${c}`}
+                    className={`cell ${cellColorClass} ${shadowClass} ${isBlasting ? "blasting" : ""}`}
+                    onClick={() => handleCellClick(r, c)}
+                  ></div>
                 );
               })
             )}
@@ -536,24 +690,6 @@ export default function BlockBlastGame() {
             ))}
           </div>
 
-          {!isLoggedIn && (
-            <div className="auth-modal">
-              <h2>SIAPA NAMAMU?</h2>
-              <form onSubmit={handleLoginSubmit} style={{ width: "100%", textAlign: "center" }}>
-                <input
-                  type="text"
-                  placeholder="Masukkan Username..."
-                  className="login-input"
-                  value={inputName}
-                  onChange={(e) => setInputName(e.target.value)}
-                  maxLength={12}
-                />
-                <br />
-                <button type="submit" className="start-btn">Mulai Main</button>
-              </form>
-            </div>
-          )}
-
           {isGameOver && (
             <div className="game-over-modal">
               <h2>GAME OVER!</h2>
@@ -561,16 +697,128 @@ export default function BlockBlastGame() {
                 Skor Akhirmu: <span style={{ color: "#FFEA00", fontWeight: "bold" }}>{score}</span>
               </p>
               <button className="restart-btn" onClick={resetGame}>Main Lagi</button>
+              <button className="ad-btn" onClick={() => startAd("continue")}>
+                🎬 Lanjut Main (1 Iklan)
+              </button>
             </div>
           )}
         </div>
 
+        <div className="shop-panel">
+          <button
+            className={`bomb-btn ${bombMode ? "active" : ""}`}
+            onClick={activateBomb}
+            disabled={isGameOver}
+          >
+            💣 Bom ({bombs})
+          </button>
+          <button
+            className={`rocket-btn ${rocketMode ? "active" : ""}`}
+            onClick={activateRocket}
+            disabled={isGameOver}
+          >
+            🚀 Roket ({rockets})
+          </button>
+          <button
+            className="clearall-btn"
+            onClick={() => {
+              playSound("click");
+              setShopItem("clearall");
+            }}
+            disabled={isGameOver}
+          >
+            💥 Semua ({CLEAR_ALL_PRICE}🪙)
+          </button>
+        </div>
       </div>
 
+      {/* Iklan Banner 468x60 */}
+      <div className="ad-banner-468">
+        <Script
+          id="banner-468-options"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html:
+              "atOptions = { 'key' : '7a720b8bd6f9559390383bafec81d9f6', 'format' : 'iframe', 'height' : 60, 'width' : 468, 'params' : {} };",
+          }}
+        />
+        <Script
+          src="https://www.highrevenueformat.com/7a720b8bd6f9559390383bafec81d9f6/invoke.js"
+          strategy="afterInteractive"
+        />
+      </div>
+
+      {shopItem && (
+        <div className="buy-modal-overlay" onClick={() => setShopItem(null)}>
+          <div className="buy-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>
+              {shopItem === "bomb"
+                ? "💣 BOM HABIS!"
+                : shopItem === "rocket"
+                ? "🚀 ROKET HABIS!"
+                : "💥 HANCURKAN SEMUA"}
+            </h2>
+            <p>
+              {shopItem === "clearall"
+                ? "Beli untuk menghancurkan semua balok sekaligus, atau tonton iklan gratis."
+                : `Kamu tidak punya ${shopItem === "bomb" ? "bom" : "roket"}. Beli atau tonton iklan gratis.`}
+            </p>
+            <div className="coin-display">🪙 {coins}</div>
+            <button
+              className="buy-btn"
+              onClick={buyItem}
+              disabled={coins < itemPrice(shopItem)}
+            >
+              Beli ({itemPrice(shopItem)}🪙)
+            </button>
+            <button className="ad-btn" onClick={() => startAd(shopItem)}>
+              🎬 Tonton Iklan ({itemAds(shopItem)} iklan)
+            </button>
+            <button className="close-btn" onClick={() => setShopItem(null)}>
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
+      {adTask && (
+        <div className="buy-modal-overlay">
+          <div className="buy-modal">
+            <h2>🎬 TONTON IKLAN</h2>
+            {adTask.total > 1 && (
+              <p className="ad-progress">
+                Iklan {Math.min(adTask.done + 1, adTask.total)} dari {adTask.total}
+              </p>
+            )}
+            <p>
+              Iklan akan terbuka di tab baru. Tonton sampai selesai, kembali ke sini,
+              lalu tekan Klaim Hadiah.
+            </p>
+            {!adTask.opened ? (
+              <button className="ad-btn" onClick={openAdTab}>
+                ▶ Buka Iklan
+              </button>
+            ) : adTask.ready ? (
+              <button className="buy-btn" onClick={claimAdReward}>
+                🎁 Klaim Hadiah
+              </button>
+            ) : (
+              <button className="close-btn" disabled>
+                Menunggu iklan selesai...
+              </button>
+            )}
+            <button className="close-btn" onClick={() => setAdTask(null)}>
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
+
      {drag.active && drag.block && (
-        <div 
-          className="dragging-block" 
-          style={{ 
+        <div
+          className="dragging-block"
+          style={{
             position: "fixed",
             left: 0,
             top: 0,

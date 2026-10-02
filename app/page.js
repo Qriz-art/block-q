@@ -5,7 +5,7 @@ import BlockBlastGame from "./BlockBlastGame";
 // =======================================================
 export const metadata = {
   title: "BLOCK Q - Main Game Puzzle Balok Klasik Online Gratis",
-  description: "Mainkan BLOCK Q online gratis! Game puzzle susun balok paling seru langsung di browser Anda. Hancurkan baris balok, kumpulkan kombo gemilang, pecahkan rekor, dan kuasai papan peringkat TOP 10!",
+  description: "Mainkan BLOCK Q online gratis! Game puzzle susun balok paling seru langsung di browser Anda. Hancurkan baris balok, kumpulkan koin, dan gunakan bom untuk meledakkan balok yang mengganggu!",
   keywords: [
     "block q",
     "game block q",
@@ -23,7 +23,7 @@ export const metadata = {
   },
   openGraph: {
     title: "BLOCK Q - Main Game Puzzle Balok Klasik Online Gratis",
-    description: "Susun balok strategi, picu ledakan kombo, dan amankan rekor tertinggimu di papan peringkat global BLOCK Q!",
+    description: "Susun balok strategi, picu ledakan kombo, kumpulkan koin, dan belanjakan untuk bom di BLOCK Q!",
     url: "https://block-q.vercel.app", 
     siteName: "BLOCK Q",
     images: [
@@ -61,7 +61,7 @@ export default function Page() {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "BLOCK Q",
-    "description": "Game teka-teki susun balok arkade yang adiktif dengan fitur anti-duplikat rekor papan peringkat lokal.",
+    "description": "Game teka-teki susun balok arkade yang adiktif dengan koin dan bom untuk membantu menyusun balok.",
     "operatingSystem": "Windows, macOS, Android, iOS, Linux",
     "applicationCategory": "GameApplication",
     "browserRequirements": "Requires HTML5 support and JavaScript enabled",

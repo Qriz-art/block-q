@@ -11,11 +11,29 @@ body {
   background: linear-gradient(180deg, #64B5F6 0%, #E3F2FD 100%);
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  gap: 16px;
   position: relative;
   touch-action: none;
   padding: 20px;
+}
+
+/* Iklan Banner 468x60 */
+.ad-banner-468 {
+  width: 468px;
+  height: 60px;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  z-index: 10;
+}
+.ad-banner-468 iframe {
+  max-width: 100%;
+  border: 0;
 }
 
 /* Dekorasi */
@@ -45,8 +63,8 @@ body {
   justify-content: center;
 }
 
-/* PAPAN PERINGKAT (Tampilan Desktop Bawaan) */
-.leaderboard-container {
+/* PANEL TOKO: KOIN & BOM (Desktop = card sisi kanan) */
+.shop-panel {
   background: rgba(26, 35, 126, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 25px;
@@ -56,49 +74,115 @@ body {
   width: 280px;
   color: white;
   text-align: center;
-  position: relative;
-}
-.leaderboard-title {
-  font-size: 22px;
-  font-weight: bold;
-  color: #FFEA00;
-  text-shadow: 2px 2px 0px #FF1744;
-  margin-bottom: 15px;
-  letter-spacing: 1px;
-}
-.leaderboard-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-.leaderboard-item {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 14px;
+  gap: 12px;
+}
+/* Penghitung koin di bagian atas game */
+.coin-bar {
+  display: inline-block;
+  background: #1A237E;
+  color: #FFEA00;
+  font-size: 16px;
   font-weight: bold;
-  border: 1px solid rgba(255,255,255,0.1);
+  padding: 6px 18px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.4);
 }
-.rank-name {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-  flex-grow: 1;
-  margin-left: 10px;
+.coin-display {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 10px 16px;
+  color: #FFEA00;
+  font-size: 20px;
+  font-weight: bold;
 }
-.leaderboard-item.rank-1 { background: linear-gradient(45deg, #FFD700, #FFA000); color: #000; border: 1px solid #FFF;}
-.leaderboard-item.rank-2 { background: linear-gradient(45deg, #E0E0E0, #9E9E9E); color: #000; }
-.leaderboard-item.rank-3 { background: linear-gradient(45deg, #CD7F32, #8D6E63); color: #FFF; }
+.bomb-btn, .rocket-btn, .clearall-btn, .buy-btn, .ad-btn {
+  border: none;
+  border-radius: 20px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+  width: 100%;
+}
+.bomb-btn { background: #FF1744; color: #FFF; box-shadow: 0 3px 10px rgba(255,23,68,0.5); }
+.bomb-btn.active { background: #FFEA00; color: #B10000; animation: pulse 0.8s infinite alternate; }
+.rocket-btn { background: #00B0FF; color: #FFF; box-shadow: 0 3px 10px rgba(0,176,255,0.5); }
+.rocket-btn.active { background: #FFEA00; color: #01579B; animation: pulse 0.8s infinite alternate; }
+.clearall-btn { background: #FF9100; color: #FFF; box-shadow: 0 3px 10px rgba(255,145,0,0.45); }
+.buy-btn { background: #00C853; color: #FFF; box-shadow: 0 3px 10px rgba(0,200,83,0.4); }
+.ad-btn { background: #7C4DFF; color: #FFF; box-shadow: 0 3px 10px rgba(124,77,255,0.45); }
+.bomb-btn:hover:not(:disabled), .rocket-btn:hover:not(:disabled),
+.clearall-btn:hover:not(:disabled), .buy-btn:hover:not(:disabled),
+.ad-btn:hover:not(:disabled) { transform: scale(1.05); }
+.bomb-btn:disabled, .clearall-btn:disabled, .buy-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bomb-hint {
+  font-size: 13px;
+  font-weight: bold;
+  color: #FF1744;
+  margin-bottom: 10px;
+}
+@keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
 
-/* Tombol Kontrol Papan Peringkat (Sembunyi di Desktop) */
-.leaderboard-toggle-btn, .leaderboard-close-btn {
-  display: none;
+/* POP UP BELI BOM */
+.buy-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  z-index: 2000;
 }
+.buy-modal {
+  background: #1A237E;
+  border: 4px solid #FFF;
+  border-radius: 25px;
+  padding: 25px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: popIn 0.2s ease-out;
+}
+.buy-modal h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #FFEA00;
+  text-shadow: 2px 2px 0 #FF1744;
+}
+.buy-modal p { margin: 0; font-size: 14px; line-height: 1.4; }
+.buy-modal .ad-progress {
+  color: #FFEA00;
+  font-weight: bold;
+  font-size: 15px;
+}
+.close-btn {
+  width: 100%;
+  background: #607D8B;
+  color: #FFF;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.close-btn:hover { transform: scale(1.05); }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.grid.bomb-mode, .grid.rocket-mode { cursor: crosshair; }
+.grid.bomb-mode .cell:hover, .grid.rocket-mode .cell:hover { outline: 2px solid #FFEA00; outline-offset: -2px; }
 
 /* WADAH UTAMA GAME */
 .game-container {
@@ -113,9 +197,6 @@ body {
   text-shadow: 3px 3px 0px #FFEA00, 5px 5px 0px #29B6F6; margin: 0 0 15px 0; letter-spacing: 2px;
 }
 
-.user-tag {
-  font-size: 14px; color: #1A237E; font-weight: bold; margin-bottom: 10px; text-transform: uppercase;
-}
 
 .score-board {
   display: flex; justify-content: space-between; background: #1A237E; color: #FFF;
@@ -156,26 +237,17 @@ body {
 @keyframes blast { 0% { transform: scale(1); opacity: 1; filter: brightness(2); } 50% { transform: scale(1.1); opacity: 0.5; } 100% { transform: scale(0); opacity: 0; } }
 .blasting { animation: blast 0.3s ease-out forwards; }
 
-.game-over-modal, .auth-modal {
+.game-over-modal {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(26, 35, 126, 0.95); z-index: 100; border-radius: 25px;
   display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
   padding: 30px;
 }
-.auth-modal h2 { font-size: 28px; color: #FFEA00; text-shadow: 2px 2px 0 #FF1744; margin-bottom: 20px; }
-
-.login-input {
-  background: #FFF; border: 3px solid #00E676; padding: 12px 20px; font-size: 18px;
-  border-radius: 15px; width: 80%; text-align: center; color: #333; font-weight: bold;
-  margin-bottom: 20px; outline: none;
-}
-.login-input::placeholder { color: #AAA; font-weight: normal; }
-
-.start-btn, .restart-btn {
+.restart-btn {
   background: #00E676; color: white; border: none; padding: 12px 35px; font-size: 18px;
   border-radius: 25px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,230,118,0.4); font-weight: bold; transition: 0.2s;
 }
-.start-btn:hover, .restart-btn:hover { transform: scale(1.05); }
+.restart-btn:hover { transform: scale(1.05); }
 
 
 /* =======================================================
@@ -185,71 +257,23 @@ body {
   body { overflow-y: auto; height: auto; }
   .game-layout { flex-direction: column; align-items: center; }
 
-  /* Tombol Melayang Munculkan Peringkat di HP (Kiri Bawah) */
-  .leaderboard-toggle-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    background: #1A237E;
-    color: #FFEA00;
-    border: 3px solid #FFF;
-    padding: 10px 18px;
-    border-radius: 25px;
-    font-size: 14px;
-    font-weight: bold;
-    z-index: 90;
-    cursor: pointer;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-    border-image: none;
-    transition: 0.2s;
+  /* Panel bom turun ke bawah papan permainan di HP, isinya 1 baris */
+  .shop-panel {
+    flex-direction: row;
+    align-items: stretch;
+    width: 100%;
+    max-width: 440px;
+    padding: 12px;
+    gap: 8px;
   }
-  .leaderboard-toggle-btn:active { transform: scale(0.95); }
-
-  /* Ubah Papan Rekor Jadi Sembunyi & Berbentuk Pop-Up Centered Modal */
-  .leaderboard-container {
-    display: none; /* Sembunyi default di HP */
-  }
-  
-  /* Class pemicu saat tombol piala diklik */
-  .leaderboard-container.mobile-open {
-    display: block;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
-    width: 90%;
-    max-width: 320px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7); /* Efek background gelap melingkari pop up */
-    animation: popUpEffect 0.2s ease-out forwards;
+  .shop-panel .bomb-btn,
+  .shop-panel .rocket-btn,
+  .shop-panel .clearall-btn {
+    flex: 1;
+    width: auto;
+    font-size: 12px;
+    padding: 12px 6px;
+    border-radius: 16px;
   }
 
-  @keyframes popUpEffect {
-    from { transform: translate(-50%, -40%) scale(0.9); opacity: 0; }
-    to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  }
-
-  /* Tombol bulat silang untuk tutup Pop up peringkat */
-  .leaderboard-close-btn {
-    display: block;
-    position: absolute;
-    top: -12px;
-    right: -12px;
-    background: #FF1744;
-    color: white;
-    border: 3px solid #FFF;
-    border-radius: 50%;
-    width: 34px;
-    height: 34px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-  }
 }
